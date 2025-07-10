@@ -1,0 +1,3 @@
+[submodule "libs/l8w8jwt"]
+	path = libs/l8w8jwt
+	url = https://github.com/GlitchedPolygons/l8w8jwt.git
