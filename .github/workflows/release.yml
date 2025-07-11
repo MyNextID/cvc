@@ -132,7 +132,6 @@ jobs:
           cmake -A ${{ matrix.cmake_arch }} -DCMAKE_BUILD_TYPE=Release ${{ github.workspace }}
 
       - name: Build CVC library
-        shell: bash
         run: |
           cd ${{ env.BUILD_DIR }}
           cmake --build . --config Release
