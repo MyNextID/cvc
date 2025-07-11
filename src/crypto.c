@@ -3,4 +3,7 @@
 //
 
 #include "crypto.h"
-#include "core.h"
+
+const char* cvc_hello_world(void) {
+    return "Hello World from CVC Library";
+}
