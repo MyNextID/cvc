@@ -1,0 +1,268 @@
+name: Build and Release CVC Library
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
+
+permissions:
+  contents: write  # Required for creating releases and uploading assets
+
+jobs:
+  build:
+    name: Build CVC Library
+    strategy:
+      matrix:
+        include:
+          # macOS builds
+          - os: macos-latest
+            arch: arm64
+            platform: darwin
+            cmake_arch: arm64
+          - os: macos-latest
+            arch: x86_64
+            platform: darwin
+            cmake_arch: x86_64
+          # Linux builds
+          - os: ubuntu-latest
+            arch: x86_64
+            platform: linux
+            cmake_arch: x86_64
+          - os: ubuntu-latest
+            arch: aarch64
+            platform: linux
+            cmake_arch: aarch64
+          # Windows builds
+          - os: windows-latest
+            arch: x86_64
+            platform: windows
+            cmake_arch: x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive  # Initialize and update submodules (miracl-core, l8w8jwt)
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.2'
+
+      - name: Install build dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential clang cmake
+          # Install cross-compilation tools for aarch64 if needed
+          if [ "${{ matrix.arch }}" = "aarch64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          fi
+
+      - name: Install build dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install cmake
+
+      - name: Install build dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+          # Refresh environment variables
+          refreshenv
+
+      - name: Set up build environment variables
+        shell: bash
+        run: |
+          echo "BUILD_DIR=${{ github.workspace }}/build-${{ matrix.platform }}-${{ matrix.arch }}" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME=libcvc-${{ matrix.platform }}-${{ matrix.arch }}" >> $GITHUB_ENV
+
+      - name: Configure cross-compilation (Linux aarch64)
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'aarch64'
+        run: |
+          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CXX=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+          echo "CMAKE_SYSTEM_NAME=Linux" >> $GITHUB_ENV
+          echo "CMAKE_SYSTEM_PROCESSOR=aarch64" >> $GITHUB_ENV
+          echo "CMAKE_C_COMPILER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" >> $GITHUB_ENV
+
+      - name: Build miracl-core library
+        shell: bash
+        run: |
+          cd libs/miracl-core/c
+          python3 config64.py -o 3 -o 1
+          # Verify core.a was created
+          if [ ! -f "core.a" ]; then
+            echo "Error: core.a was not created by miracl-core build"
+            exit 1
+          fi
+          echo "miracl-core build completed successfully"
+
+      - name: Create build directory
+        run: mkdir -p ${{ env.BUILD_DIR }}
+
+      - name: Configure CMake (Unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
+          
+          # Add cross-compilation args for Linux aarch64
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ] && [ "${{ matrix.arch }}" = "aarch64" ]; then
+            CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_SYSTEM_NAME=$CMAKE_SYSTEM_NAME"
+            CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_SYSTEM_PROCESSOR=$CMAKE_SYSTEM_PROCESSOR" 
+            CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_C_COMPILER=$CMAKE_C_COMPILER"
+            CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CXX_COMPILER=$CMAKE_CXX_COMPILER"
+          fi
+          
+          # Add macOS architecture specification
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }}"
+          fi
+          
+          cmake $CMAKE_ARGS ${{ github.workspace }}
+
+      - name: Configure CMake (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: cmd
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          cmake -A ${{ matrix.cmake_arch }} -DCMAKE_BUILD_TYPE=Release ${{ github.workspace }}
+
+      - name: Build CVC library
+        shell: bash
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          cmake --build . --config Release
+
+      - name: Verify build artifacts
+        shell: bash
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          # Look for the static library file
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            LIBRARY_FILE="Release/cvc.lib"
+          else
+            LIBRARY_FILE="libcvc.a"
+          fi
+          
+          if [ ! -f "$LIBRARY_FILE" ]; then
+            echo "Error: $LIBRARY_FILE was not created"
+            echo "Contents of build directory:"
+            ls -la
+            if [ "${{ matrix.os }}" = "windows-latest" ] && [ -d "Release" ]; then
+              echo "Contents of Release directory:"
+              ls -la Release/
+            fi
+            exit 1
+          fi
+          
+          echo "Build successful: $LIBRARY_FILE created"
+          echo "LIBRARY_FILE=$LIBRARY_FILE" >> $GITHUB_ENV
+
+      - name: Prepare release artifacts
+        shell: bash
+        run: |
+          # Create artifacts directory
+          ARTIFACTS_DIR="${{ env.BUILD_DIR }}/artifacts"
+          mkdir -p "$ARTIFACTS_DIR"
+          
+          # Copy the static library
+          cp "${{ env.BUILD_DIR }}/${{ env.LIBRARY_FILE }}" "$ARTIFACTS_DIR/"
+          
+          # Copy headers
+          cp -r src/*.h "$ARTIFACTS_DIR/"
+          
+          # Copy external library headers that are exposed through cvc.h
+          mkdir -p "$ARTIFACTS_DIR/include"
+          cp -r libs/miracl-core/c/*.h "$ARTIFACTS_DIR/include/" || true
+          cp -r libs/l8w8jwt/include/* "$ARTIFACTS_DIR/include/" || true
+          
+          # Create a tarball/zip for this platform
+          cd "$ARTIFACTS_DIR"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            ARCHIVE_NAME="${{ env.ARTIFACT_NAME }}.zip"
+            7z a "../$ARCHIVE_NAME" .
+          else
+            ARCHIVE_NAME="${{ env.ARTIFACT_NAME }}.tar.gz"  
+            tar -czf "../$ARCHIVE_NAME" .
+          fi
+          
+          echo "ARCHIVE_PATH=${{ env.BUILD_DIR }}/$ARCHIVE_NAME" >> $GITHUB_ENV
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.ARCHIVE_PATH }}
+          retention-days: 1
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare release files
+        run: |
+          # Move all artifacts to a single directory
+          mkdir -p ./release-assets
+          find ./artifacts -name "*.tar.gz" -o -name "*.zip" | while read file; do
+            mv "$file" ./release-assets/
+          done
+          
+          # List what we're releasing
+          echo "Release assets:"
+          ls -la ./release-assets/
+
+      - name: Extract version from tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Releasing version: $VERSION"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "CVC Library ${{ env.VERSION }}"
+          body: |
+            ## CVC Cryptographic Library ${{ env.VERSION }}
+            
+            Cross-platform C library for cryptographic operations.
+            
+            ### Supported Platforms
+            - **macOS**: arm64, x86_64 
+            - **Linux**: x86_64, aarch64
+            - **Windows**: x86_64
+            
+            ### Dependencies Included
+            - miracl-core (elliptic curve cryptography)
+            - l8w8jwt (JWT handling)
+            
+            ### Usage
+            1. Download the appropriate archive for your platform
+            2. Extract the static library (.a/.lib) and headers (.h)
+            3. Link against the static library in your project
+            
+            See README.md for detailed integration instructions.
+          files: ./release-assets/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
