@@ -137,7 +137,6 @@ jobs:
           cmake --build . --config Release
 
       - name: Verify build artifacts
-        shell: bash
         run: |
           cd ${{ env.BUILD_DIR }}
           # Look for the static library file
@@ -162,7 +161,6 @@ jobs:
           echo "LIBRARY_FILE=$LIBRARY_FILE" >> $GITHUB_ENV
 
       - name: Prepare release artifacts
-        shell: bash
         run: |
           # Create artifacts directory
           ARTIFACTS_DIR="${{ env.BUILD_DIR }}/artifacts"
