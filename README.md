@@ -42,3 +42,32 @@ cmake --build .
 ```
 
 The output will be a static library (`.a`) suitable for iOS XCFramework packaging and cross-platform integration.
+
+
+## Release Process
+
+We use an automated release workflow to build cross-platform binaries and create GitHub releases.
+
+### Creating a Release
+
+1. **Update version**: Modify the version numbers in `CMakeLists.txt`:
+   ```cmake
+   set(CVC_MAJOR 1)
+   set(CVC_MINOR 1)
+   set(CVC_PATCH 1)
+   ```
+
+2. **Create release tag**: Run the release script:
+   ```bash
+   ./release.sh
+   ```
+   This automatically creates a git tag from the CMakeLists.txt version and pushes it to GitHub.
+
+3. **Automated build**: The tag triggers a GitHub Actions workflow that builds static libraries for:
+    - **macOS**: arm64, x86_64
+    - **Linux**: x86_64, aarch64
+    - **Windows**: x86_64
+
+4. **GitHub Release**: Once builds complete, a new release is automatically created with downloadable archives containing the static libraries and headers for each platform.
+
+The release artifacts include the compiled static library (`.a`/`.lib`) and all necessary headers for integration into iOS, Android, and Golang projects.
