@@ -12,7 +12,7 @@ We use **Git Submodules** to manage two external cryptographic libraries:
 
 ### 1. miracl-core
 - **Purpose**: Elliptic curve cryptography
-- **Build Method**: Python script (`python3 config64.py -o 3`)
+- **Build Method**: Python script (`python3 config64.py -o 3 -o 1`)
 - **Location**: `libs/miracl-core/c`
 
 ### 2. l8w8jwt

@@ -6,14 +6,14 @@ project(cvc C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
-set(CVC_MAJOR 2)
-set(CVC_MINOR 5)
+set(CVC_MAJOR 1)
+set(CVC_MINOR 0)
 set(CVC_PATCH 0)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Build miracl-core library
 execute_process(
-        COMMAND python3 config64.py -o 3
+        COMMAND python3 config64.py -o 3 -o 1
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
         RESULT_VARIABLE MIRACL_BUILD_RESULT
 )
