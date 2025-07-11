@@ -69,10 +69,7 @@ jobs:
 
       - name: Install build dependencies (Windows)
         if: matrix.os == 'windows-latest'
-        run: |
-          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
-          # Refresh environment variables
-          refreshenv
+        uses: lukka/get-cmake@latest
 
       - name: Set up build environment variables
         shell: bash
