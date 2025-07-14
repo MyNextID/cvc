@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 1)
-set(CVC_PATCH 7)
+set(CVC_PATCH 8)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Build miracl-core library
@@ -47,34 +47,16 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "Minimum CMake policy version" FORCE)
 add_subdirectory(libs/l8w8jwt)
 
-# Extract MIRACL objects from core.a into a temporary directory
-set(MIRACL_EXTRACT_DIR ${CMAKE_BINARY_DIR}/miracl_extracted)
-file(MAKE_DIRECTORY ${MIRACL_EXTRACT_DIR})
-
-# Extract all .o files from core.a
-execute_process(
-        COMMAND ar x ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
-        WORKING_DIRECTORY ${MIRACL_EXTRACT_DIR}
-        RESULT_VARIABLE EXTRACT_RESULT
-)
-
-if (NOT EXTRACT_RESULT EQUAL 0)
-    message(FATAL_ERROR "Failed to extract objects from core.a")
-endif()
-
-# Get list of extracted object files
-file(GLOB MIRACL_OBJECTS "${MIRACL_EXTRACT_DIR}/*.o")
-
-# Create main library including MIRACL objects
+# Create main library
 add_library(cvc STATIC
         # source files
         src/crypto.c
-        ${MIRACL_OBJECTS}
 )
 
-# Link l8w8jwt
+# Link libraries
 target_link_libraries(cvc
         PUBLIC
+        ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
         l8w8jwt
 )
 

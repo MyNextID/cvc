@@ -18,7 +18,7 @@ extern "C" {
     const char* cvc_hello_world(void);
 
     /**
-     * Simple MIRACL test function
+     * Simple MIRACL test function - return 1 if success or 0 if failed
      */
     int cvc_test_miracl_big_add(void);
 
