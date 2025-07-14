@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 1)
-set(CVC_PATCH 12)
+set(CVC_PATCH 13)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Build miracl-core library with correct architecture using custom command
@@ -68,23 +68,38 @@ target_include_directories(cvc_base
         ${CMAKE_SOURCE_DIR}/libs/l8w8jwt/include
 )
 
-# Create the final combined library using a custom command
+# Platform-specific library combination
 set(MIRACL_LIB ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a)
-set(COMBINED_LIB ${CMAKE_BINARY_DIR}/libcvc.a)
 
-add_custom_command(
-        OUTPUT ${COMBINED_LIB}
-        COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library..."
-        COMMAND ${CMAKE_AR} -x $<TARGET_FILE:cvc_base>
-        COMMAND ${CMAKE_AR} -x $<TARGET_FILE:l8w8jwt>
-        COMMAND ${CMAKE_AR} -x ${MIRACL_LIB}
-        COMMAND ${CMAKE_AR} -qc ${COMBINED_LIB} *.o
-        COMMAND ${CMAKE_RANLIB} ${COMBINED_LIB}
-        COMMAND ${CMAKE_COMMAND} -E remove *.o
-        DEPENDS cvc_base l8w8jwt miracl_core
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/temp_extract
-        COMMENT "Combining all static libraries into libcvc.a"
-)
+if (WIN32)
+    # Windows: Use lib.exe to combine static libraries
+    set(COMBINED_LIB ${CMAKE_BINARY_DIR}/cvc.lib)
+
+    add_custom_command(
+            OUTPUT ${COMBINED_LIB}
+            COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library for Windows..."
+            COMMAND lib.exe /OUT:${COMBINED_LIB} $<TARGET_FILE:cvc_base> $<TARGET_FILE:l8w8jwt> ${MIRACL_LIB}
+            DEPENDS cvc_base l8w8jwt miracl_core
+            COMMENT "Combining all static libraries into cvc.lib using lib.exe"
+    )
+else ()
+    # Unix/Linux/macOS: Use ar to combine static libraries
+    set(COMBINED_LIB ${CMAKE_BINARY_DIR}/libcvc.a)
+
+    add_custom_command(
+            OUTPUT ${COMBINED_LIB}
+            COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library..."
+            COMMAND ${CMAKE_AR} -x $<TARGET_FILE:cvc_base>
+            COMMAND ${CMAKE_AR} -x $<TARGET_FILE:l8w8jwt>
+            COMMAND ${CMAKE_AR} -x ${MIRACL_LIB}
+            COMMAND ${CMAKE_AR} -qc ${COMBINED_LIB} *.o
+            COMMAND ${CMAKE_RANLIB} ${COMBINED_LIB}
+            COMMAND ${CMAKE_COMMAND} -E remove *.o
+            DEPENDS cvc_base l8w8jwt miracl_core
+            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/temp_extract
+            COMMENT "Combining all static libraries into libcvc.a"
+    )
+endif ()
 
 # Create the temp directory for extraction
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/temp_extract)
