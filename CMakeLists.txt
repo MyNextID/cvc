@@ -28,19 +28,18 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 1)
-set(CVC_PATCH 9)
+set(CVC_PATCH 10)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
-# Build miracl-core library with correct architecture
-execute_process(
+# Build miracl-core library with correct architecture using custom command
+add_custom_command(
+        OUTPUT ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
         COMMAND python3 config64.py -o 3 -o 1
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
-        RESULT_VARIABLE MIRACL_BUILD_RESULT
+        COMMENT "Building MIRACL core library with cross-compilation toolchain"
 )
 
-if (NOT MIRACL_BUILD_RESULT EQUAL 0)
-    message(FATAL_ERROR "Failed to build miracl-core library")
-endif ()
+add_custom_target(miracl_core DEPENDS ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a)
 
 # Add l8w8jwt subdirectory and build as static library
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
@@ -79,7 +78,7 @@ add_custom_command(
         COMMAND ${CMAKE_AR} -qc ${COMBINED_LIB} *.o
         COMMAND ${CMAKE_RANLIB} ${COMBINED_LIB}
         COMMAND ${CMAKE_COMMAND} -E remove *.o
-        DEPENDS cvc_base l8w8jwt
+        DEPENDS cvc_base l8w8jwt miracl_core
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/temp_extract
         COMMENT "Combining all static libraries into libcvc.a"
 )
