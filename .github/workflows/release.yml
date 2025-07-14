@@ -19,10 +19,6 @@ jobs:
             arch: arm64
             platform: darwin
             cmake_arch: arm64
-          - os: macos-latest
-            arch: x86_64
-            platform: darwin
-            cmake_arch: x86_64
           # Linux builds
           - os: ubuntu-latest
             arch: x86_64
