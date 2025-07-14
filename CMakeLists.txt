@@ -47,16 +47,35 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "Minimum CMake policy version" FORCE)
 add_subdirectory(libs/l8w8jwt)
 
-# Create main library
-add_library(cvc STATIC
-        # source files
-        src/crypto.c
+# Extract MIRACL objects from core.a
+set(MIRACL_EXTRACT_DIR ${CMAKE_BINARY_DIR}/miracl_extracted)
+file(MAKE_DIRECTORY ${MIRACL_EXTRACT_DIR})
+
+# Extract objects from core.a
+execute_process(
+        COMMAND ar x ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
+        WORKING_DIRECTORY ${MIRACL_EXTRACT_DIR}
+        RESULT_VARIABLE EXTRACT_RESULT
 )
 
-# Link libraries
+if (NOT EXTRACT_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to extract objects from core.a")
+endif()
+
+# Get list of extracted MIRACL object files
+file(GLOB MIRACL_OBJECTS "${MIRACL_EXTRACT_DIR}/*.o")
+
+# Create main library with all objects included
+add_library(cvc STATIC
+        # Our source files
+        src/crypto.c
+        # Include MIRACL object files directly
+        ${MIRACL_OBJECTS}
+)
+
+# We still need to link l8w8jwt normally since it's built by CMake
 target_link_libraries(cvc
         PUBLIC
-        ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
         l8w8jwt
 )
 
