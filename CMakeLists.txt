@@ -28,13 +28,16 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 1)
-set(CVC_PATCH 10)
+set(CVC_PATCH 11)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Build miracl-core library with correct architecture using custom command
 add_custom_command(
         OUTPUT ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
-        COMMAND python3 config64.py -o 3 -o 1
+        COMMAND ${CMAKE_COMMAND} -E env
+        CC=${CMAKE_C_COMPILER}
+        CFLAGS=${CMAKE_C_FLAGS}
+        python3 config64.py -o 3 -o 1
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
         COMMENT "Building MIRACL core library with cross-compilation toolchain"
 )
