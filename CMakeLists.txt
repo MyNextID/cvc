@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 1)
-set(CVC_PATCH 13)
+set(CVC_PATCH 14)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Build miracl-core library with correct architecture using custom command
@@ -72,16 +72,24 @@ target_include_directories(cvc_base
 set(MIRACL_LIB ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a)
 
 if (WIN32)
-    # Windows: Use lib.exe to combine static libraries
-    set(COMBINED_LIB ${CMAKE_BINARY_DIR}/cvc.lib)
+    # Windows: Create combined library in both root and Release directory for Visual Studio compatibility
+    set(COMBINED_LIB_ROOT ${CMAKE_BINARY_DIR}/cvc.lib)
+    set(COMBINED_LIB_RELEASE ${CMAKE_BINARY_DIR}/Release/cvc.lib)
+
+    # Ensure Release directory exists
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/Release)
 
     add_custom_command(
-            OUTPUT ${COMBINED_LIB}
+            OUTPUT ${COMBINED_LIB_ROOT} ${COMBINED_LIB_RELEASE}
             COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library for Windows..."
-            COMMAND lib.exe /OUT:${COMBINED_LIB} $<TARGET_FILE:cvc_base> $<TARGET_FILE:l8w8jwt> ${MIRACL_LIB}
+            COMMAND lib.exe /OUT:${COMBINED_LIB_ROOT} $<TARGET_FILE:cvc_base> $<TARGET_FILE:l8w8jwt> ${MIRACL_LIB}
+            COMMAND ${CMAKE_COMMAND} -E copy ${COMBINED_LIB_ROOT} ${COMBINED_LIB_RELEASE}
             DEPENDS cvc_base l8w8jwt miracl_core
             COMMENT "Combining all static libraries into cvc.lib using lib.exe"
     )
+
+    # Set the library location for the target
+    set(COMBINED_LIB ${COMBINED_LIB_ROOT})
 else ()
     # Unix/Linux/macOS: Use ar to combine static libraries
     set(COMBINED_LIB ${CMAKE_BINARY_DIR}/libcvc.a)
@@ -105,4 +113,8 @@ endif ()
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/temp_extract)
 
 # Create a custom target that depends on the combined library
-add_custom_target(cvc ALL DEPENDS ${COMBINED_LIB})
+if (WIN32)
+    add_custom_target(cvc ALL DEPENDS ${COMBINED_LIB_ROOT} ${COMBINED_LIB_RELEASE})
+else ()
+    add_custom_target(cvc ALL DEPENDS ${COMBINED_LIB})
+endif ()
