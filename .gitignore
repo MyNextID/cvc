@@ -67,3 +67,4 @@ install_manifest.txt
 
 !build/.gitkeep
 build
+build_test
