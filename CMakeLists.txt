@@ -28,10 +28,10 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 1)
-set(CVC_PATCH 8)
+set(CVC_PATCH 9)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
-# Build miracl-core library
+# Build miracl-core library with correct architecture
 execute_process(
         COMMAND python3 config64.py -o 3 -o 1
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
@@ -47,42 +47,45 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "Minimum CMake policy version" FORCE)
 add_subdirectory(libs/l8w8jwt)
 
-# Extract MIRACL objects from core.a
-set(MIRACL_EXTRACT_DIR ${CMAKE_BINARY_DIR}/miracl_extracted)
-file(MAKE_DIRECTORY ${MIRACL_EXTRACT_DIR})
-
-# Extract objects from core.a
-execute_process(
-        COMMAND ar x ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
-        WORKING_DIRECTORY ${MIRACL_EXTRACT_DIR}
-        RESULT_VARIABLE EXTRACT_RESULT
-)
-
-if (NOT EXTRACT_RESULT EQUAL 0)
-    message(FATAL_ERROR "Failed to extract objects from core.a")
-endif()
-
-# Get list of extracted MIRACL object files
-file(GLOB MIRACL_OBJECTS "${MIRACL_EXTRACT_DIR}/*.o")
-
-# Create main library with all objects included
-add_library(cvc STATIC
-        # Our source files
+# Create our main library (just our source files)
+add_library(cvc_base STATIC
         src/crypto.c
-        # Include MIRACL object files directly
-        ${MIRACL_OBJECTS}
 )
 
-# We still need to link l8w8jwt normally since it's built by CMake
-target_link_libraries(cvc
+# Link l8w8jwt to our base library
+target_link_libraries(cvc_base
         PUBLIC
         l8w8jwt
 )
 
-# Include directories for header access
-target_include_directories(cvc
+# Include directories for the base library
+target_include_directories(cvc_base
         PUBLIC
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
         ${CMAKE_SOURCE_DIR}/libs/l8w8jwt/include
 )
+
+# Create the final combined library using a custom command
+set(MIRACL_LIB ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a)
+set(COMBINED_LIB ${CMAKE_BINARY_DIR}/libcvc.a)
+
+add_custom_command(
+        OUTPUT ${COMBINED_LIB}
+        COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library..."
+        COMMAND ${CMAKE_AR} -x $<TARGET_FILE:cvc_base>
+        COMMAND ${CMAKE_AR} -x $<TARGET_FILE:l8w8jwt>
+        COMMAND ${CMAKE_AR} -x ${MIRACL_LIB}
+        COMMAND ${CMAKE_AR} -qc ${COMBINED_LIB} *.o
+        COMMAND ${CMAKE_RANLIB} ${COMBINED_LIB}
+        COMMAND ${CMAKE_COMMAND} -E remove *.o
+        DEPENDS cvc_base l8w8jwt
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/temp_extract
+        COMMENT "Combining all static libraries into libcvc.a"
+)
+
+# Create the temp directory for extraction
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/temp_extract)
+
+# Create a custom target that depends on the combined library
+add_custom_target(cvc ALL DEPENDS ${COMBINED_LIB})
