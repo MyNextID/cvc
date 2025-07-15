@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 0)
+set(CVC_PATCH 1)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
@@ -62,6 +62,26 @@ if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
             set(IOS_MIRACL_CFLAGS "${IOS_MIRACL_CFLAGS} -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
         endif ()
     endif ()
+
+    # *** NEW: Add global iOS flags for l8w8jwt inheritance ***
+    # Set target flags that will be inherited by ALL subdirectories
+    if (CMAKE_OSX_SYSROOT MATCHES "iphoneos")
+        set(GLOBAL_IOS_TARGET "-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    elseif (CMAKE_OSX_SYSROOT MATCHES "iphonesimulator")
+        set(GLOBAL_IOS_TARGET "-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}-simulator")
+    endif ()
+
+    # Force these into CMAKE_C_FLAGS and CMAKE_CXX_FLAGS so ALL subdirectories inherit them
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${GLOBAL_IOS_TARGET}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GLOBAL_IOS_TARGET}")
+
+    if (CMAKE_OSX_SYSROOT)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isysroot ${CMAKE_OSX_SYSROOT}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${CMAKE_OSX_SYSROOT}")
+    endif ()
+
+    message(STATUS "Global iOS target flags for inheritance: ${GLOBAL_IOS_TARGET}")
+    # *** END NEW SECTION ***
 else ()
     set(IS_IOS_BUILD FALSE)
 endif ()
