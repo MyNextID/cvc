@@ -27,60 +27,67 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
-set(CVC_MINOR 1)
-set(CVC_PATCH 15)
+set(CVC_MINOR 2)
+set(CVC_PATCH 0)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
-if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
     message(STATUS "Configuring for iOS build")
     set(IS_IOS_BUILD TRUE)
 
     # Set iOS deployment target if not already set
-    if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+    if (NOT CMAKE_OSX_DEPLOYMENT_TARGET)
         set(CMAKE_OSX_DEPLOYMENT_TARGET "18.0")
-    endif()
+    endif ()
 
     # Determine iOS platform (device vs simulator)
-    if(CMAKE_OSX_SYSROOT MATCHES ".*iphonesimulator.*")
+    if (CMAKE_OSX_SYSROOT MATCHES ".*iphonesimulator.*")
         set(IOS_PLATFORM "simulator")
         message(STATUS "Building for iOS Simulator")
-    else()
+    else ()
         set(IOS_PLATFORM "device")
         message(STATUS "Building for iOS Device")
-    endif()
+    endif ()
 
     # Set iOS-specific compiler flags for MIRACL
     set(IOS_MIRACL_CFLAGS "-arch ${CMAKE_OSX_ARCHITECTURES}")
-    if(CMAKE_OSX_SYSROOT)
+    if (CMAKE_OSX_SYSROOT)
         set(IOS_MIRACL_CFLAGS "${IOS_MIRACL_CFLAGS} -isysroot ${CMAKE_OSX_SYSROOT}")
-    endif()
-    if(CMAKE_OSX_DEPLOYMENT_TARGET)
-        if(IOS_PLATFORM STREQUAL "simulator")
+    endif ()
+    if (CMAKE_OSX_DEPLOYMENT_TARGET)
+        if (IOS_PLATFORM STREQUAL "simulator")
             set(IOS_MIRACL_CFLAGS "${IOS_MIRACL_CFLAGS} -mios-simulator-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        else()
+        else ()
             set(IOS_MIRACL_CFLAGS "${IOS_MIRACL_CFLAGS} -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        endif()
-    endif()
-else()
+        endif ()
+    endif ()
+else ()
     set(IS_IOS_BUILD FALSE)
-endif()
+endif ()
 
-# Build miracl-core library with correct architecture using custom command
-# This preserves your existing working logic while adding iOS support
-if(IS_IOS_BUILD)
-    # iOS-specific MIRACL build with proper environment variables
+# Build miracl-core library with correct iOS cross-compilation environment
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # Set iOS-specific environment for MIRACL build
+    if (CMAKE_OSX_SYSROOT MATCHES "iphoneos")
+        set(MIRACL_TARGET_FLAGS "-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}")
+        set(MIRACL_SDK_FLAGS "-isysroot ${CMAKE_OSX_SYSROOT}")
+    elseif (CMAKE_OSX_SYSROOT MATCHES "iphonesimulator")
+        set(MIRACL_TARGET_FLAGS "-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}-simulator")
+        set(MIRACL_SDK_FLAGS "-isysroot ${CMAKE_OSX_SYSROOT}")
+    endif ()
+
     add_custom_command(
             OUTPUT ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
             COMMAND ${CMAKE_COMMAND} -E env
             CC=${CMAKE_C_COMPILER}
-            CFLAGS="${CMAKE_C_FLAGS} ${IOS_MIRACL_CFLAGS}"
+            CFLAGS="${CMAKE_C_FLAGS} ${MIRACL_TARGET_FLAGS} ${MIRACL_SDK_FLAGS}"
             python3 config64.py -o 3 -o 1
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
-            COMMENT "Building MIRACL core library for iOS (${IOS_PLATFORM})"
+            COMMENT "Building MIRACL core library for iOS with proper cross-compilation"
     )
-else()
-    # Existing logic for non-iOS builds (preserves current working behavior)
+else ()
+    # Original build for non-iOS platforms
     add_custom_command(
             OUTPUT ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
             COMMAND ${CMAKE_COMMAND} -E env
@@ -90,7 +97,7 @@ else()
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
             COMMENT "Building MIRACL core library with cross-compilation toolchain"
     )
-endif()
+endif ()
 
 add_custom_target(miracl_core DEPENDS ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a)
 
