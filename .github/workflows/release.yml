@@ -54,11 +54,6 @@ jobs:
           submodules: recursive  # Initialize and update submodules (miracl-core, l8w8jwt)
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13.2'
-
       - name: Install build dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -122,18 +117,6 @@ jobs:
             echo "CMAKE_OSX_SYSROOT=$IOS_SDK_PATH" >> $GITHUB_ENV
             echo "Building for iOS Device with SDK: $IOS_SDK_PATH"
           fi
-
-      - name: Build miracl-core library
-        shell: bash
-        run: |
-          cd libs/miracl-core/c
-          python3 config64.py -o 3 -o 1
-          # Verify core.a was created
-          if [ ! -f "core.a" ]; then
-            echo "Error: core.a was not created by miracl-core build"
-            exit 1
-          fi
-          echo "miracl-core build completed successfully"
 
       - name: Create build directory
         run: mkdir -p ${{ env.BUILD_DIR }}
