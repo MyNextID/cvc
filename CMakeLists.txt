@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 13)
+set(CVC_PATCH 14)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
@@ -41,8 +41,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
         set(CMAKE_OSX_DEPLOYMENT_TARGET "18.0")
     endif ()
 
-    # Determine iOS platform (device vs simulator)
-    if (CMAKE_OSX_SYSROOT MATCHES ".*iphonesimulator.*")
+    # Determine iOS platform (device vs simulator) - case insensitive match
+    string(TOLOWER "${CMAKE_OSX_SYSROOT}" CMAKE_OSX_SYSROOT_LOWER)
+    if (CMAKE_OSX_SYSROOT_LOWER MATCHES ".*iphonesimulator.*")
         set(IOS_PLATFORM "simulator")
         message(STATUS "Building for iOS Simulator")
     else ()
