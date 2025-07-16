@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 9)
+set(CVC_PATCH 10)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
@@ -218,16 +218,13 @@ else ()
 
     add_custom_command(
             OUTPUT ${COMBINED_LIB}
-            COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library..."
-            COMMAND ${CMAKE_AR} -x $<TARGET_FILE:cvc_base>
-            COMMAND ${CMAKE_AR} -x $<TARGET_FILE:l8w8jwt>
-            COMMAND ${CMAKE_AR} -x ${MIRACL_LIB}
-            COMMAND ${CMAKE_AR} -qc ${COMBINED_LIB} *.o
-            COMMAND ${CMAKE_RANLIB} ${COMBINED_LIB}
-            COMMAND ${CMAKE_COMMAND} -E remove *.o
+            COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library using libtool..."
+            COMMAND libtool -static -o ${COMBINED_LIB}
+            $<TARGET_FILE:cvc_base>
+            $<TARGET_FILE:l8w8jwt>
+            ${MIRACL_LIB}
             DEPENDS cvc_base l8w8jwt miracl_core
-            WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/temp_extract
-            COMMENT "Combining all static libraries into libcvc.a"
+            COMMENT "Combining all static libraries into libcvc.a using libtool"
     )
 endif ()
 
