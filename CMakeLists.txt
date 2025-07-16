@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 4)
+set(CVC_PATCH 5)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
@@ -48,19 +48,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
     else ()
         set(IOS_PLATFORM "device")
         message(STATUS "Building for iOS Device")
-    endif ()
-
-    # Set iOS-specific compiler flags for MIRACL
-    set(IOS_MIRACL_CFLAGS "-arch ${CMAKE_OSX_ARCHITECTURES}")
-    if (CMAKE_OSX_SYSROOT)
-        set(IOS_MIRACL_CFLAGS "${IOS_MIRACL_CFLAGS} -isysroot ${CMAKE_OSX_SYSROOT}")
-    endif ()
-    if (CMAKE_OSX_DEPLOYMENT_TARGET)
-        if (IOS_PLATFORM STREQUAL "simulator")
-            set(IOS_MIRACL_CFLAGS "${IOS_MIRACL_CFLAGS} -mios-simulator-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        else ()
-            set(IOS_MIRACL_CFLAGS "${IOS_MIRACL_CFLAGS} -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        endif ()
     endif ()
 
     # *** NEW: Add global iOS flags for l8w8jwt inheritance ***
@@ -88,31 +75,57 @@ endif ()
 
 # Build miracl-core library with correct iOS cross-compilation environment
 if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    # Set iOS-specific environment for MIRACL build
-    if (CMAKE_OSX_SYSROOT MATCHES "iphoneos")
-        set(MIRACL_TARGET_FLAGS "-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        set(MIRACL_SDK_FLAGS "-isysroot ${CMAKE_OSX_SYSROOT}")
-    elseif (CMAKE_OSX_SYSROOT MATCHES "iphonesimulator")
-        set(MIRACL_TARGET_FLAGS "-target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}-simulator")
-        set(MIRACL_SDK_FLAGS "-isysroot ${CMAKE_OSX_SYSROOT}")
+    # Build clean MIRACL-specific CFLAGS from scratch
+    set(MIRACL_CFLAGS "")
+
+    # Add architecture flag
+    set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -arch ${CMAKE_OSX_ARCHITECTURES}")
+
+    # Add sysroot
+    if (CMAKE_OSX_SYSROOT)
+        set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -isysroot ${CMAKE_OSX_SYSROOT}")
     endif ()
+
+    # Add deployment target
+    if (CMAKE_OSX_DEPLOYMENT_TARGET)
+        if (IOS_PLATFORM STREQUAL "simulator")
+            set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -mios-simulator-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+        else ()
+            set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+        endif ()
+    endif ()
+
+    # Clean up any leading/trailing whitespace
+    string(STRIP "${MIRACL_CFLAGS}" MIRACL_CFLAGS)
+
+    message(STATUS "MIRACL CFLAGS: ${MIRACL_CFLAGS}")
 
     add_custom_command(
             OUTPUT ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
             COMMAND ${CMAKE_COMMAND} -E env
             CC=${CMAKE_C_COMPILER}
-            CFLAGS="${CMAKE_C_FLAGS} ${MIRACL_TARGET_FLAGS} ${MIRACL_SDK_FLAGS}"
+            CFLAGS=${MIRACL_CFLAGS}
             python3 config64.py -o 3 -o 1
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
             COMMENT "Building MIRACL core library for iOS with proper cross-compilation"
     )
 else ()
-    # Original build for non-iOS platforms
+    # Original build for non-iOS platforms - build clean CFLAGS for consistency
+    set(MIRACL_CFLAGS "")
+
+    # Add architecture flag for macOS if specified
+    if (APPLE AND CMAKE_OSX_ARCHITECTURES)
+        set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -arch ${CMAKE_OSX_ARCHITECTURES}")
+    endif ()
+
+    # Clean up any leading/trailing whitespace
+    string(STRIP "${MIRACL_CFLAGS}" MIRACL_CFLAGS)
+
     add_custom_command(
             OUTPUT ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
             COMMAND ${CMAKE_COMMAND} -E env
             CC=${CMAKE_C_COMPILER}
-            CFLAGS="${CMAKE_C_FLAGS} $<$<PLATFORM_ID:Darwin>:-arch ${CMAKE_OSX_ARCHITECTURES}>"
+            CFLAGS=${MIRACL_CFLAGS}
             python3 config64.py -o 3 -o 1
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
             COMMENT "Building MIRACL core library with cross-compilation toolchain"
