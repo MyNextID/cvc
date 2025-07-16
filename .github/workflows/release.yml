@@ -224,6 +224,20 @@ jobs:
           cp -r libs/miracl-core/c/*.h "$ARTIFACTS_DIR/include/" || true
           cp -r libs/l8w8jwt/include/* "$ARTIFACTS_DIR/include/" || true
           
+          # NEW: Copy individual libraries for debugging platform issues
+          if [ "${{ matrix.platform }}" = "ios" ]; then
+            mkdir -p "$ARTIFACTS_DIR/debug_libs"
+          
+            # Copy individual component libraries if they exist
+            cp "${{ env.BUILD_DIR }}/libcvc_base.a" "$ARTIFACTS_DIR/debug_libs/" 2>/dev/null || echo "libcvc_base.a not found"
+            cp "${{ env.BUILD_DIR }}/libl8w8jwt.a" "$ARTIFACTS_DIR/debug_libs/" 2>/dev/null || echo "libl8w8jwt.a not found"
+            cp "libs/miracl-core/c/core.a" "$ARTIFACTS_DIR/debug_libs/" 2>/dev/null || echo "core.a not found"
+          
+            # Also copy any intermediate libraries from l8w8jwt's lib subdirectories
+            find "${{ env.BUILD_DIR }}" -name "*.a" -exec cp {} "$ARTIFACTS_DIR/debug_libs/" \; 2>/dev/null || true
+            find "libs/l8w8jwt" -name "*.a" -exec cp {} "$ARTIFACTS_DIR/debug_libs/" \; 2>/dev/null || true
+          fi
+          
           # Create a tarball/zip for this platform
           cd "$ARTIFACTS_DIR"
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
