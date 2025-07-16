@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 12)
+set(CVC_PATCH 13)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
@@ -86,13 +86,11 @@ if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
         set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -isysroot ${CMAKE_OSX_SYSROOT}")
     endif ()
 
-    # Add deployment target
-    if (CMAKE_OSX_DEPLOYMENT_TARGET)
-        if (IOS_PLATFORM STREQUAL "simulator")
-            set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -mios-simulator-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        else ()
-            set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -miphoneos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
-        endif ()
+    # FIX: Add the proper target triple for iOS vs iOS Simulator
+    if (IOS_PLATFORM STREQUAL "simulator")
+        set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}-simulator")
+    else ()
+        set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -target arm64-apple-ios${CMAKE_OSX_DEPLOYMENT_TARGET}")
     endif ()
 
     # Clean up any leading/trailing whitespace
