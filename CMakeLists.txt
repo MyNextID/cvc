@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 11)
+set(CVC_PATCH 12)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
@@ -194,11 +194,9 @@ target_include_directories(cvc_base
 set(MIRACL_LIB ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a)
 
 if (WIN32)
-    # Windows: Create combined library in both root and Release directory for Visual Studio compatibility
+    # Windows: Use lib.exe
     set(COMBINED_LIB_ROOT ${CMAKE_BINARY_DIR}/cvc.lib)
     set(COMBINED_LIB_RELEASE ${CMAKE_BINARY_DIR}/Release/cvc.lib)
-
-    # Ensure Release directory exists
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/Release)
 
     add_custom_command(
@@ -209,11 +207,9 @@ if (WIN32)
             DEPENDS cvc_base l8w8jwt miracl_core
             COMMENT "Combining all static libraries into cvc.lib using lib.exe"
     )
-
-    # Set the library location for the target
     set(COMBINED_LIB ${COMBINED_LIB_ROOT})
-else ()
-    # Unix/Linux/macOS/iOS: Use ar to combine static libraries
+elseif (APPLE)
+    # macOS/iOS: Use Apple's libtool
     set(COMBINED_LIB ${CMAKE_BINARY_DIR}/libcvc.a)
 
     add_custom_command(
@@ -226,8 +222,26 @@ else ()
             DEPENDS cvc_base l8w8jwt miracl_core
             COMMENT "Combining all static libraries into libcvc.a using libtool"
     )
-endif ()
+else ()
+    # Linux: Use ar with MRI script (GNU ar feature)
+    set(COMBINED_LIB ${CMAKE_BINARY_DIR}/libcvc.a)
 
+    add_custom_command(
+            OUTPUT ${COMBINED_LIB}
+            COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library using ar..."
+            COMMAND ${CMAKE_COMMAND} -E echo "CREATE ${COMBINED_LIB}" > ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_COMMAND} -E echo "ADDLIB $<TARGET_FILE:cvc_base>" >> ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_COMMAND} -E echo "ADDLIB $<TARGET_FILE:l8w8jwt>" >> ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_COMMAND} -E echo "ADDLIB ${MIRACL_LIB}" >> ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_COMMAND} -E echo "SAVE" >> ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_COMMAND} -E echo "END" >> ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_AR} -M < ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_RANLIB} ${COMBINED_LIB}
+            COMMAND ${CMAKE_COMMAND} -E remove ${CMAKE_BINARY_DIR}/ar_script.mri
+            DEPENDS cvc_base l8w8jwt miracl_core
+            COMMENT "Combining all static libraries into libcvc.a using ar"
+    )
+endif ()
 # Create the temp directory for extraction
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/temp_extract)
 
