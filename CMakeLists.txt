@@ -134,9 +134,39 @@ endif ()
 
 add_custom_target(miracl_core DEPENDS ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a)
 
+# ENHANCED: Force iOS configuration for ALL l8w8jwt sub-libraries (especially mbedtls)
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # Set cache variables that will be inherited by ALL subdirectories and sub-subdirectories
+    set(CMAKE_SYSTEM_NAME "iOS" CACHE STRING "Target system" FORCE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "${CMAKE_OSX_DEPLOYMENT_TARGET}" CACHE STRING "iOS deployment target" FORCE)
+    set(CMAKE_OSX_ARCHITECTURES "${CMAKE_OSX_ARCHITECTURES}" CACHE STRING "iOS architectures" FORCE)
+    set(CMAKE_OSX_SYSROOT "${CMAKE_OSX_SYSROOT}" CACHE PATH "iOS SDK path" FORCE)
+
+    # Force compiler and flags for all sub-projects
+    set(CMAKE_C_COMPILER "${CMAKE_C_COMPILER}" CACHE FILEPATH "C compiler" FORCE)
+    set(CMAKE_CXX_COMPILER "${CMAKE_CXX_COMPILER}" CACHE FILEPATH "CXX compiler" FORCE)
+
+    # CRITICAL: Force mbedtls to disable programs and tests (they cause platform issues)
+    set(ENABLE_TESTING OFF CACHE BOOL "Build MbedTLS tests." FORCE)
+    set(ENABLE_PROGRAMS OFF CACHE BOOL "Build MbedTLS example programs." FORCE)
+
+    # Set policy to ensure subdirectories inherit these settings
+    cmake_policy(SET CMP0077 NEW)
+
+    message(STATUS "Forced iOS settings for all l8w8jwt sub-libraries including mbedtls")
+endif ()
+
 # Add l8w8jwt subdirectory and build as static library
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "Minimum CMake policy version" FORCE)
+
+# CRITICAL: Disable l8w8jwt's own tests and examples for iOS to prevent platform mixing
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(L8W8JWT_ENABLE_TESTS OFF CACHE BOOL "Build l8w8jwt tests." FORCE)
+    set(L8W8JWT_ENABLE_EXAMPLES OFF CACHE BOOL "Build l8w8jwt example programs." FORCE)
+    set(L8W8JWT_ENABLE_EDDSA OFF CACHE BOOL "Build the library with EdDSA support." FORCE)
+endif ()
+
 add_subdirectory(libs/l8w8jwt)
 
 # Create our main library (just our source files)
