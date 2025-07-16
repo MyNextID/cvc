@@ -63,7 +63,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential clang cmake
+          sudo apt-get install -y build-essential clang cmake libtool
           # Install cross-compilation tools for aarch64 if needed
           if [ "${{ matrix.arch }}" = "aarch64" ]; then
             sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
@@ -72,7 +72,7 @@ jobs:
       - name: Install build dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          brew install cmake
+          brew install cmake libtool
 
       - name: Install build dependencies (Windows)
         if: matrix.os == 'windows-latest'
