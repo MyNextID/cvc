@@ -125,13 +125,16 @@ jobs:
 
       - name: Build miracl-core library (Windows)
         if: matrix.os == 'windows-latest'
-        shell: cmd
+        shell: bash
         run: |
           cd libs/miracl-core/c
           python3 config64.py -o 3 -o 1
-          del core.a
-          lib.exe /OUT:core.a *.obj
-          echo Windows-compatible miracl-core.a created
+          # Verify core.a was created
+          if [ ! -f "core.a" ]; then
+            echo "Error: core.a was not created by miracl-core build"
+            exit 1
+          fi
+          echo "miracl-core build completed successfully"
 
       - name: Create build directory
         run: mkdir -p ${{ env.BUILD_DIR }}
