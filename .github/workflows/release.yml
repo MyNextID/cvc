@@ -123,6 +123,19 @@ jobs:
             echo "Building for iOS Device with SDK: $IOS_SDK_PATH"
           fi
 
+      - name: Build miracl-core library (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd libs/miracl-core/c
+          # Build the individual object files
+          python3 config64.py -o 3 -o 1
+          # Remove the problematic core.a that uses Unix ar format
+          rm -f core.a
+          # Create Windows-compatible lib using MSVC lib.exe
+          lib.exe /OUT:core.a *.o
+          echo "Windows-compatible miracl-core.a created"
+
       - name: Create build directory
         run: mkdir -p ${{ env.BUILD_DIR }}
 
