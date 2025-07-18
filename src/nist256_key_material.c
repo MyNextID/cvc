@@ -59,7 +59,10 @@ int nist256_big_to_key_material(BIG_256_56 d, nist256_key_material_t* key_materi
 
     // Get the generator point G for NIST P-256
     ECP_NIST256 G;
-    ECP_NIST256_generator(&G);
+    if (!ECP_NIST256_generator(&G))
+    {
+        return -3; // Failed to get generator point
+    }
 
     // Calculate public key point: pub = d * G
     ECP_NIST256 pub;
@@ -78,15 +81,13 @@ int nist256_big_to_key_material(BIG_256_56 d, nist256_key_material_t* key_materi
     // Extract the x and y coordinates from the public key point
     BIG_256_56 x_coord, y_coord;
 
-    // Get X coordinate
-    FP_NIST256 x_fp;
-    ECP_NIST256_get(&x_fp, NULL, &pub); // Get x coordinate into FP
-    FP_NIST256_redc(&x_coord, &x_fp);   // Convert FP to BIG
-
-    // Get Y coordinate
-    FP_NIST256 y_fp;
-    ECP_NIST256_get(NULL, &y_fp, &pub); // Get y coordinate into FP
-    FP_NIST256_redc(&y_coord, &y_fp);   // Convert FP to BIG
+    // CORRECTED: Get both coordinates in one call
+    // The ECP_NIST256_get function expects BIG_256_56 parameters, not FP_NIST256
+    int result = ECP_NIST256_get(x_coord, y_coord, &pub);
+    if (result < 0)
+    {
+        return -4; // Failed to extract coordinates
+    }
 
     // Convert BIG numbers to byte arrays
     BIG_256_56_toBytes((char*)key_material->private_key_bytes, d);
