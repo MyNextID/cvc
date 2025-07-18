@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 15)
+set(CVC_PATCH 16)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
@@ -171,6 +171,7 @@ add_subdirectory(libs/l8w8jwt)
 # Create our main library (just our source files)
 add_library(cvc_base STATIC
         src/crypto.c
+        src/nist256_key_material.c
 )
 
 add_dependencies(cvc_base miracl_core)
