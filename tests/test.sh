@@ -108,6 +108,20 @@ clang -o test_ecp_operations tests/test_ecp_operations.c \
 
 print_success "ECP operations test program compiled successfully"
 
+# Compile hash-to-field test program
+print_info "Compiling hash-to-field test program..."
+clang -o test_hash_to_field tests/test_hash_to_field.c \
+    -I. \
+    -I./libs/miracl-core/c \
+    -I./libs/l8w8jwt/include \
+    -L./$BUILD_DIR \
+    -lcvc || {
+    print_error "Hash-to-field test compilation failed"
+    exit 1
+}
+
+print_success "Hash-to-field test program compiled successfully"
+
 # Run main tests
 print_info "Running main tests..."
 echo
@@ -120,15 +134,22 @@ echo
 ./test_ecp_operations
 ECP_TEST_RESULT=$?
 
+echo
+print_info "Running hash-to-field tests..."
+echo
+./test_hash_to_field
+HTF_TEST_RESULT=$?
+
 # Cleanup
-rm -f test_cvc test_ecp_operations
+rm -f test_cvc test_ecp_operations test_hash_to_field
 
 # Evaluate results
-if [[ $MAIN_TEST_RESULT -eq 0 && $ECP_TEST_RESULT -eq 0 ]]; then
+if [[ $MAIN_TEST_RESULT -eq 0 && $ECP_TEST_RESULT -eq 0 && $HTF_TEST_RESULT -eq 0 ]]; then
     print_success "All tests passed! 🎉"
     print_info "Your library is ready for Go integration"
     print_info "✅ Main CVC library functions: PASSED"
     print_info "✅ ECP operations (public key addition): PASSED"
+    print_info "✅ Hash-to-field operations: PASSED"
 else
     print_error "Some tests failed!"
     if [[ $MAIN_TEST_RESULT -ne 0 ]]; then
@@ -136,11 +157,17 @@ else
     else
         print_success "✅ Main CVC library tests: PASSED"
     fi
-    
+
     if [[ $ECP_TEST_RESULT -ne 0 ]]; then
         print_error "❌ ECP operations tests: FAILED"
     else
         print_success "✅ ECP operations tests: PASSED"
+    fi
+
+    if [[ $HTF_TEST_RESULT -ne 0 ]]; then
+        print_error "❌ Hash-to-field tests: FAILED"
+    else
+        print_success "✅ Hash-to-field tests: PASSED"
     fi
     
     print_info "Check the output above for details"

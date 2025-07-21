@@ -5,12 +5,14 @@
 #include "crypto.h"
 #include "ecp_Ed25519.h"
 
-const char* cvc_hello_world(void) {
+const char* cvc_hello_world(void)
+{
     return "Hello World from CVC Library";
 }
 
 // Simple test function that uses MIRACL Ed25519 operations
-int cvc_test_miracl_big_add(void) {
+int cvc_test_miracl_big_add(void)
+{
     ECP_Ed25519 G;
 
     // Try to get the generator point for Ed25519

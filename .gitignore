@@ -68,3 +68,6 @@ install_manifest.txt
 !build/.gitkeep
 build
 build_test
+
+.vscode
+.github/workflows/release.yml

@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 18)
+set(CVC_PATCH 19)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
@@ -173,6 +173,7 @@ add_library(cvc_base STATIC
         src/crypto.c
         src/nist256_key_material.c
         src/ecp_operations.c
+        src/hash_to_field.c
 )
 
 add_dependencies(cvc_base miracl_core)
