@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # test.sh - Build and test CVC library
 # Usage: ./test.sh
 
@@ -59,7 +58,6 @@ print_info "Running: cmake --build . --verbose"
 cmake --build . --verbose || {
     print_error "Build failed"
     print_info "Detailed build output above should show the specific error"
-
     # Show additional debugging info
     echo
     print_info "Debugging information:"
@@ -68,7 +66,6 @@ cmake --build . --verbose || {
     echo "Makefile exists: $(test -f Makefile && echo 'YES' || echo 'NO')"
     echo "Contents of build directory:"
     ls -la
-
     exit 1
 }
 
@@ -83,33 +80,69 @@ else
     exit 1
 fi
 
-# Compile test program
-print_info "Compiling test program..."
+# Compile main test program
+print_info "Compiling main test program..."
 clang -o test_cvc tests/test_cvc.c \
     -I. \
     -I./libs/miracl-core/c \
     -I./libs/l8w8jwt/include \
     -L./$BUILD_DIR \
     -lcvc || {
-    print_error "Test compilation failed"
+    print_error "Main test compilation failed"
     exit 1
 }
 
-print_success "Test program compiled successfully"
+print_success "Main test program compiled successfully"
 
-# Run tests
-print_info "Running tests..."
+# Compile ECP operations test program
+print_info "Compiling ECP operations test program..."
+clang -o test_ecp_operations tests/test_ecp_operations.c \
+    -I. \
+    -I./libs/miracl-core/c \
+    -I./libs/l8w8jwt/include \
+    -L./$BUILD_DIR \
+    -lcvc || {
+    print_error "ECP operations test compilation failed"
+    exit 1
+}
+
+print_success "ECP operations test program compiled successfully"
+
+# Run main tests
+print_info "Running main tests..."
 echo
 ./test_cvc
-TEST_RESULT=$?
+MAIN_TEST_RESULT=$?
+
+echo
+print_info "Running ECP operations tests..."
+echo
+./test_ecp_operations
+ECP_TEST_RESULT=$?
 
 # Cleanup
-rm -f test_cvc
+rm -f test_cvc test_ecp_operations
 
-if [[ $TEST_RESULT -eq 0 ]]; then
+# Evaluate results
+if [[ $MAIN_TEST_RESULT -eq 0 && $ECP_TEST_RESULT -eq 0 ]]; then
     print_success "All tests passed! 🎉"
     print_info "Your library is ready for Go integration"
+    print_info "✅ Main CVC library functions: PASSED"
+    print_info "✅ ECP operations (public key addition): PASSED"
 else
-    print_error "Tests failed! Check the output above for details"
+    print_error "Some tests failed!"
+    if [[ $MAIN_TEST_RESULT -ne 0 ]]; then
+        print_error "❌ Main CVC library tests: FAILED"
+    else
+        print_success "✅ Main CVC library tests: PASSED"
+    fi
+    
+    if [[ $ECP_TEST_RESULT -ne 0 ]]; then
+        print_error "❌ ECP operations tests: FAILED"
+    else
+        print_success "✅ ECP operations tests: PASSED"
+    fi
+    
+    print_info "Check the output above for details"
     exit 1
 fi
