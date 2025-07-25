@@ -122,6 +122,20 @@ clang -o test_hash_to_field tests/test_hash_to_field.c \
 
 print_success "Hash-to-field test program compiled successfully"
 
+# Compile add secret keys test program
+print_info "Compiling add secret keys test program..."
+clang -o test_add_secret_keys tests/test_add_secret_keys.c \
+    -I. \
+    -I./libs/miracl-core/c \
+    -I./libs/l8w8jwt/include \
+    -L./$BUILD_DIR \
+    -lcvc || {
+    print_error "Add secret keys test compilation failed"
+    exit 1
+}
+
+print_success "Add secret keys test program compiled successfully"
+
 # Run main tests
 print_info "Running main tests..."
 echo
@@ -140,16 +154,23 @@ echo
 ./test_hash_to_field
 HTF_TEST_RESULT=$?
 
+echo
+print_info "Running add secret keys tests..."
+echo
+./test_add_secret_keys
+ASK_TEST_RESULT=$?
+
 # Cleanup
-rm -f test_cvc test_ecp_operations test_hash_to_field
+rm -f test_cvc test_ecp_operations test_hash_to_field test_add_secret_keys
 
 # Evaluate results
-if [[ $MAIN_TEST_RESULT -eq 0 && $ECP_TEST_RESULT -eq 0 && $HTF_TEST_RESULT -eq 0 ]]; then
+if [[ $MAIN_TEST_RESULT -eq 0 && $ECP_TEST_RESULT -eq 0 && $HTF_TEST_RESULT -eq 0 && $ASK_TEST_RESULT -eq 0 ]]; then
     print_success "All tests passed! 🎉"
     print_info "Your library is ready for Go integration"
     print_info "✅ Main CVC library functions: PASSED"
     print_info "✅ ECP operations (public key addition): PASSED"
     print_info "✅ Hash-to-field operations: PASSED"
+    print_info "✅ Add secret keys operations: PASSED"
 else
     print_error "Some tests failed!"
     if [[ $MAIN_TEST_RESULT -ne 0 ]]; then
@@ -168,6 +189,12 @@ else
         print_error "❌ Hash-to-field tests: FAILED"
     else
         print_success "✅ Hash-to-field tests: PASSED"
+    fi
+
+    if [[ $ASK_TEST_RESULT -ne 0 ]]; then
+        print_error "❌ Add secret keys tests: FAILED"
+    else
+        print_success "✅ Add secret keys tests: PASSED"
     fi
     
     print_info "Check the output above for details"

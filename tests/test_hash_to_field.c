@@ -280,7 +280,7 @@ int main()
     printf("=== Hash-to-Field Test Summary ===\n");
     const int all_tests_passed = test1_success && test2_success && test3_success && test4_success && test5_success && test6_success && test7_success;
 
-    if (all_tests_passed == 0)
+    if (all_tests_passed)
     {
         printf("🎉 All hash-to-field tests PASSED! The functions are working correctly.\n");
         printf("✅ Basic hash-to-field operation: PASSED\n");
