@@ -31,8 +31,9 @@ jobs:
           # Windows builds
           - os: windows-latest
             arch: x86_64
-            platform: windows
+            platform: windows-mingw
             cmake_arch: x64
+            compiler: mingw
           # iOS builds (must run on macOS)
           - os: macos-latest
             arch: arm64
@@ -74,9 +75,11 @@ jobs:
         run: |
           brew install cmake libtool
 
-      - name: Install build dependencies (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: lukka/get-cmake@latest
+      - name: Install build dependencies (Windows MinGW)
+        if: matrix.os == 'windows-latest' && matrix.compiler == 'mingw'
+        run: |
+          choco install mingw
+          refreshenv
 
       - name: Set up build environment variables
         shell: bash
@@ -169,12 +172,19 @@ jobs:
           
           cmake $CMAKE_ARGS ${{ github.workspace }}
 
-      - name: Configure CMake (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Configure CMake (Windows MSVC)
+        if: matrix.os == 'windows-latest' && matrix.compiler != 'mingw'
         shell: cmd
         run: |
           cd ${{ env.BUILD_DIR }}
           cmake -A ${{ matrix.cmake_arch }} -DCMAKE_BUILD_TYPE=Release ${{ github.workspace }}
+
+      - name: Configure CMake (Windows MinGW)
+        if: matrix.os == 'windows-latest' && matrix.compiler == 'mingw'
+        shell: bash
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release ${{ github.workspace }}
 
       - name: Build CVC library
         run: |
