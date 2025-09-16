@@ -33,7 +33,6 @@ jobs:
             arch: x86_64
             platform: windows-mingw
             cmake_arch: x64
-            compiler: mingw
           # iOS builds (must run on macOS)
           - os: macos-latest
             arch: arm64
@@ -75,11 +74,18 @@ jobs:
         run: |
           brew install cmake libtool
 
+      - name: Install build dependencies (Windows MSVC)
+        if: matrix.os == 'windows-latest' && matrix.platform == 'windows'
+        uses: lukka/get-cmake@latest
+
       - name: Install build dependencies (Windows MinGW)
-        if: matrix.os == 'windows-latest' && matrix.compiler == 'mingw'
+        if: matrix.os == 'windows-latest' && matrix.platform == 'windows-mingw'
         run: |
           choco install mingw
-          refreshenv
+          # Refresh environment in the same step
+          $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH","User") 
+          gcc --version
+        shell: powershell
 
       - name: Set up build environment variables
         shell: bash
@@ -126,13 +132,24 @@ jobs:
             echo "Building for iOS Device with SDK: $IOS_SDK_PATH"
           fi
 
-      - name: Build miracl-core library (Windows)
-        if: matrix.os == 'windows-latest'
+      - name: Build miracl-core library (Windows MSVC)
+        if: matrix.os == 'windows-latest' && matrix.platform == 'windows'
         shell: bash
         run: |
           cd libs/miracl-core/c
           python3 config64.py -o 3 -o 1
-          # Verify core.a was created
+          if [ ! -f "core.a" ]; then
+            echo "Error: core.a was not created by miracl-core build"
+            exit 1
+          fi
+          echo "miracl-core build completed successfully"
+
+      - name: Build miracl-core library (Windows MinGW)
+        if: matrix.os == 'windows-latest' && matrix.platform == 'windows-mingw'
+        shell: bash
+        run: |
+          cd libs/miracl-core/c
+          python3 config64.py -o 3 -o 1
           if [ ! -f "core.a" ]; then
             echo "Error: core.a was not created by miracl-core build"
             exit 1
@@ -173,18 +190,19 @@ jobs:
           cmake $CMAKE_ARGS ${{ github.workspace }}
 
       - name: Configure CMake (Windows MSVC)
-        if: matrix.os == 'windows-latest' && matrix.compiler != 'mingw'
+        if: matrix.os == 'windows-latest' && matrix.platform == 'windows'
         shell: cmd
         run: |
-          cd ${{ env.BUILD_DIR }}
-          cmake -A ${{ matrix.cmake_arch }} -DCMAKE_BUILD_TYPE=Release ${{ github.workspace }}
+          cd "${{ env.BUILD_DIR }}"
+          cmake -A ${{ matrix.cmake_arch }} -DCMAKE_BUILD_TYPE=Release "${{ github.workspace }}"
 
       - name: Configure CMake (Windows MinGW)
-        if: matrix.os == 'windows-latest' && matrix.compiler == 'mingw'
+        if: matrix.os == 'windows-latest' && matrix.platform == 'windows-mingw'
         shell: bash
         run: |
-          cd ${{ env.BUILD_DIR }}
-          cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release ${{ github.workspace }}
+          cd "${{ env.BUILD_DIR }}"
+          # Use forward slashes and proper path escaping for MinGW
+          cmake -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release "${{ github.workspace }}"
 
       - name: Build CVC library
         run: |
