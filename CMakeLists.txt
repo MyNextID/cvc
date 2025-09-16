@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 23)
+set(CVC_PATCH 24)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
@@ -196,19 +196,43 @@ target_include_directories(cvc_base
 # Platform-specific library combination
 set(MIRACL_LIB ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a)
 
-if (WIN32)
-    # Windows: Use lib.exe
+if (WIN32 AND MSVC)
+    # Windows MSVC: Use lib.exe
     set(COMBINED_LIB_ROOT ${CMAKE_BINARY_DIR}/cvc.lib)
     set(COMBINED_LIB_RELEASE ${CMAKE_BINARY_DIR}/Release/cvc.lib)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/Release)
 
     add_custom_command(
             OUTPUT ${COMBINED_LIB_ROOT} ${COMBINED_LIB_RELEASE}
-            COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library for Windows..."
+            COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library for Windows MSVC..."
             COMMAND lib.exe /OUT:${COMBINED_LIB_ROOT} $<TARGET_FILE:cvc_base> $<TARGET_FILE:l8w8jwt> ${MIRACL_LIB}
             COMMAND ${CMAKE_COMMAND} -E copy ${COMBINED_LIB_ROOT} ${COMBINED_LIB_RELEASE}
             DEPENDS cvc_base l8w8jwt miracl_core
             COMMENT "Combining all static libraries into cvc.lib using lib.exe"
+    )
+    set(COMBINED_LIB ${COMBINED_LIB_ROOT})
+
+elseif (WIN32 AND CMAKE_COMPILER_IS_GNUCC)
+    # Windows MinGW: Use ar with MRI script
+    set(COMBINED_LIB_ROOT ${CMAKE_BINARY_DIR}/libcvc.a)
+
+    # Create MRI script for combining libraries
+    set(MRI_SCRIPT ${CMAKE_BINARY_DIR}/combine_libs.mri)
+    file(WRITE ${MRI_SCRIPT}
+            "CREATE ${COMBINED_LIB_ROOT}\n"
+            "ADDLIB $<TARGET_FILE:cvc_base>\n"
+            "ADDLIB $<TARGET_FILE:l8w8jwt>\n"
+            "ADDLIB ${MIRACL_LIB}\n"
+            "SAVE\n"
+            "END\n"
+    )
+
+    add_custom_command(
+            OUTPUT ${COMBINED_LIB_ROOT}
+            COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library for Windows MinGW..."
+            COMMAND ${CMAKE_AR} -M < ${MRI_SCRIPT}
+            DEPENDS cvc_base l8w8jwt miracl_core ${MRI_SCRIPT}
+            COMMENT "Combining all static libraries into libcvc.a using ar"
     )
     set(COMBINED_LIB ${COMBINED_LIB_ROOT})
 elseif (APPLE)
