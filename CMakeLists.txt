@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 25)
+set(CVC_PATCH 26)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # Detect iOS build and prepare appropriate compiler flags
@@ -121,16 +121,16 @@ else ()
     string(STRIP "${MIRACL_CFLAGS}" MIRACL_CFLAGS)
 
     if (WIN32)
-        # Windows: Properly escape compiler path with spaces
-        file(TO_NATIVE_PATH "${CMAKE_C_COMPILER}" CMAKE_C_COMPILER_NATIVE)
+        # Windows: Use cmd.exe compatible path escaping
+        string(REPLACE "/" "\\" CMAKE_C_COMPILER_WIN "${CMAKE_C_COMPILER}")
         add_custom_command(
                 OUTPUT ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
                 COMMAND ${CMAKE_COMMAND} -E env
-                "CC=${CMAKE_C_COMPILER_NATIVE}"
+                "CC=${CMAKE_C_COMPILER_WIN}"
                 "CFLAGS=${MIRACL_CFLAGS}"
                 python3 config64.py -o 3 -o 1
                 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
-                COMMENT "Building MIRACL core library with cross-compilation toolchain"
+                COMMENT "Building MIRACL core library with cross-compilation toolchain for Windows"
         )
     else ()
         add_custom_command(
