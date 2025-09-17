@@ -182,10 +182,14 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: msys2 {0}
         run: |
-          cd ${{ env.BUILD_DIR }}
+          # Convert Windows paths to MSYS2/Unix style paths
+          BUILD_DIR_UNIX=$(cygpath -u "${{ env.BUILD_DIR }}")
+          SOURCE_DIR_UNIX=$(cygpath -u "${{ github.workspace }}")
+          
+          cd "$BUILD_DIR_UNIX"
           export CC=gcc
           export CXX=g++
-          cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release ${{ github.workspace }}
+          cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release "$SOURCE_DIR_UNIX"
 
       - name: Build CVC library (Unix/MinGW)
         if: matrix.os != 'windows-latest'
