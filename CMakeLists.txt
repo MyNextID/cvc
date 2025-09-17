@@ -32,47 +32,32 @@ set(CVC_PATCH 27)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # ============================================================================
-# WINDOWS: Disable MSVC security features for MinGW/CGO compatibility
+# WINDOWS: MinGW-only configuration - MSVC not supported
 # ============================================================================
-if(WIN32 AND CMAKE_C_COMPILER_ID MATCHES "MSVC")
-    message(STATUS "Windows MSVC detected - disabling security features for MinGW/CGO compatibility")
+if (WIN32)
+    message(STATUS "Windows MinGW build detected")
 
-    # Disable Buffer Security Check and SDL checks to avoid __security_cookie symbols
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /GS- /sdl-")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GS- /sdl-")
+    # Ensure we're using MinGW/GCC - reject MSVC
+    if (CMAKE_C_COMPILER_ID MATCHES "MSVC")
+        message(FATAL_ERROR "MSVC is not supported. This project requires MinGW/GCC on Windows for Go/CGO compatibility.")
+    endif ()
 
-    # Use static runtime to avoid DLL dependencies
-    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
-    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MTd")
-    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+    if (NOT CMAKE_C_COMPILER_ID STREQUAL "GNU")
+        message(FATAL_ERROR "This project requires MinGW/GCC on Windows. Current compiler: ${CMAKE_C_COMPILER_ID}")
+    endif ()
 
-    # Disable warnings for deprecated functions and add compatibility definitions
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+    message(STATUS "Using MinGW/GCC compiler for Windows build")
 
-    # Disable additional security features that could introduce incompatible symbols
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /guard:cf-")  # Disable Control Flow Guard
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /guard:cf-")
+    # MinGW-specific flags for static linking and Go compatibility
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-stack-protector -static-libgcc")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-stack-protector -static-libgcc -static-libstdc++")
 
-    message(STATUS "Applied MSVC compatibility flags: /GS- /sdl- /guard:cf- /MT")
-endif()
+    # Ensure static runtime linking
+    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -DNDEBUG")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -DNDEBUG")
 
-# For MinGW compatibility when using GCC/Clang on Windows
-if(WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang"))
-    message(STATUS "Windows GCC/Clang detected - applying MinGW compatibility flags")
-
-    # Disable stack protection for consistency with MSVC /GS-
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-stack-protector")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-stack-protector")
-
-    # Static linking for MinGW
-    if(MINGW)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -static-libgcc")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libgcc -static-libstdc++")
-    endif()
-
-    message(STATUS "Applied MinGW compatibility flags: -fno-stack-protector")
-endif()
+    message(STATUS "Applied MinGW compatibility flags for Go/CGO: -fno-stack-protector -static-libgcc")
+endif ()
 
 # Detect iOS build and prepare appropriate compiler flags
 if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
@@ -161,38 +146,27 @@ else ()
     endif ()
 
     # ============================================================================
-    # WINDOWS: Add MIRACL-specific compatibility flags
+    # WINDOWS: MinGW-specific MIRACL compatibility flags
     # ============================================================================
-    if(WIN32)
-        # Apply same compatibility flags to MIRACL build
-        if(CMAKE_C_COMPILER_ID MATCHES "MSVC")
-            # For MSVC: disable security features that cause linking issues
-            set(MIRACL_CFLAGS "${MIRACL_CFLAGS} /GS- /sdl- /guard:cf- /MT")
-            message(STATUS "MIRACL MSVC compatibility flags: /GS- /sdl- /guard:cf- /MT")
-        elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
-            # For MinGW/GCC: disable stack protection
-            set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -fno-stack-protector")
-            if(MINGW)
-                set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -static-libgcc")
-            endif()
-            message(STATUS "MIRACL MinGW compatibility flags: -fno-stack-protector")
-        endif()
-    endif()
+    if (WIN32)
+        # MinGW-specific MIRACL build flags
+        set(MIRACL_CFLAGS "${MIRACL_CFLAGS} -fno-stack-protector -static-libgcc")
+        message(STATUS "MIRACL MinGW compatibility flags: -fno-stack-protector -static-libgcc")
+    endif ()
 
     # Clean up any leading/trailing whitespace
     string(STRIP "${MIRACL_CFLAGS}" MIRACL_CFLAGS)
 
     if (WIN32)
-        # Windows: Use cmd.exe compatible path escaping
-        string(REPLACE "/" "\\" CMAKE_C_COMPILER_WIN "${CMAKE_C_COMPILER}")
+        # Windows: Use MinGW with proper environment
         add_custom_command(
                 OUTPUT ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a
                 COMMAND ${CMAKE_COMMAND} -E env
-                "CC=${CMAKE_C_COMPILER_WIN}"
+                "CC=${CMAKE_C_COMPILER}"
                 "CFLAGS=${MIRACL_CFLAGS}"
                 python3 config64.py -o 3 -o 1
                 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/libs/miracl-core/c
-                COMMENT "Building MIRACL core library with Windows compatibility flags"
+                COMMENT "Building MIRACL core library with MinGW compatibility flags"
         )
     else ()
         add_custom_command(
@@ -232,18 +206,18 @@ if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
 endif ()
 
 # ============================================================================
-# WINDOWS: Configure l8w8jwt with compatibility flags
+# WINDOWS: Configure l8w8jwt with MinGW compatibility flags
 # ============================================================================
-if(WIN32)
-    message(STATUS "Configuring l8w8jwt with Windows compatibility settings")
+if (WIN32)
+    message(STATUS "Configuring l8w8jwt with MinGW compatibility settings")
 
-    # Force l8w8jwt and mbedtls to use same security settings
+    # Force l8w8jwt and mbedtls to use MinGW-compatible settings
     set(ENABLE_TESTING OFF CACHE BOOL "Build MbedTLS tests." FORCE)
     set(ENABLE_PROGRAMS OFF CACHE BOOL "Build MbedTLS example programs." FORCE)
 
     # Apply same policy for consistency
     cmake_policy(SET CMP0077 NEW)
-endif()
+endif ()
 
 # Add l8w8jwt subdirectory and build as static library
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
@@ -257,10 +231,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
 endif ()
 
 # Windows: Also disable l8w8jwt tests/examples for consistency
-if(WIN32)
+if (WIN32)
     set(L8W8JWT_ENABLE_TESTS OFF CACHE BOOL "Build l8w8jwt tests." FORCE)
     set(L8W8JWT_ENABLE_EXAMPLES OFF CACHE BOOL "Build l8w8jwt example programs." FORCE)
-endif()
+endif ()
 
 add_subdirectory(libs/l8w8jwt)
 
@@ -276,24 +250,20 @@ add_library(cvc_base STATIC
 add_dependencies(cvc_base miracl_core)
 
 # ============================================================================
-# WINDOWS: Apply compatibility flags to our library
+# WINDOWS: Apply MinGW compatibility flags to our library
 # ============================================================================
-if(WIN32 AND CMAKE_C_COMPILER_ID MATCHES "MSVC")
-    # Apply same security disabling flags to our library
-    target_compile_options(cvc_base PRIVATE
-            /GS-           # Disable security cookies
-            /sdl-          # Disable SDL checks
-            /guard:cf-     # Disable Control Flow Guard
-            /wd4996        # Disable deprecated function warnings
-    )
-    message(STATUS "Applied MSVC compatibility flags to cvc_base library")
-elseif(WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang"))
-    # Apply MinGW compatibility flags
+if (WIN32)
+    # Apply MinGW compatibility flags to our library
     target_compile_options(cvc_base PRIVATE
             -fno-stack-protector
+            -static-libgcc
+    )
+    target_link_options(cvc_base PRIVATE
+            -static-libgcc
+            -static-libstdc++
     )
     message(STATUS "Applied MinGW compatibility flags to cvc_base library")
-endif()
+endif ()
 
 # Link l8w8jwt to our base library
 target_link_libraries(cvc_base
@@ -313,20 +283,24 @@ target_include_directories(cvc_base
 set(MIRACL_LIB ${CMAKE_SOURCE_DIR}/libs/miracl-core/c/core.a)
 
 if (WIN32)
-    # Windows: Use lib.exe
-    set(COMBINED_LIB_ROOT ${CMAKE_BINARY_DIR}/cvc.lib)
-    set(COMBINED_LIB_RELEASE ${CMAKE_BINARY_DIR}/Release/cvc.lib)
-    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/Release)
+    # Windows: Use MinGW ar instead of lib.exe
+    set(COMBINED_LIB ${CMAKE_BINARY_DIR}/libcvc.a)
 
     add_custom_command(
-            OUTPUT ${COMBINED_LIB_ROOT} ${COMBINED_LIB_RELEASE}
-            COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library for Windows..."
-            COMMAND lib.exe /OUT:${COMBINED_LIB_ROOT} $<TARGET_FILE:cvc_base> $<TARGET_FILE:l8w8jwt> ${MIRACL_LIB}
-            COMMAND ${CMAKE_COMMAND} -E copy ${COMBINED_LIB_ROOT} ${COMBINED_LIB_RELEASE}
+            OUTPUT ${COMBINED_LIB}
+            COMMAND ${CMAKE_COMMAND} -E echo "Creating combined library using MinGW ar..."
+            COMMAND ${CMAKE_COMMAND} -E echo "CREATE ${COMBINED_LIB}" > ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_COMMAND} -E echo "ADDLIB $<TARGET_FILE:cvc_base>" >> ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_COMMAND} -E echo "ADDLIB $<TARGET_FILE:l8w8jwt>" >> ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_COMMAND} -E echo "ADDLIB ${MIRACL_LIB}" >> ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_COMMAND} -E echo "SAVE" >> ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_COMMAND} -E echo "END" >> ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_AR} -M < ${CMAKE_BINARY_DIR}/ar_script.mri
+            COMMAND ${CMAKE_RANLIB} ${COMBINED_LIB}
+            COMMAND ${CMAKE_COMMAND} -E remove ${CMAKE_BINARY_DIR}/ar_script.mri
             DEPENDS cvc_base l8w8jwt miracl_core
-            COMMENT "Combining all static libraries into cvc.lib using lib.exe (with MSVC compatibility)"
+            COMMENT "Combining all static libraries into libcvc.a using MinGW ar"
     )
-    set(COMBINED_LIB ${COMBINED_LIB_ROOT})
 elseif (APPLE)
     # macOS/iOS: Use Apple's libtool
     set(COMBINED_LIB ${CMAKE_BINARY_DIR}/libcvc.a)
@@ -361,12 +335,9 @@ else ()
             COMMENT "Combining all static libraries into libcvc.a using ar"
     )
 endif ()
+
 # Create the temp directory for extraction
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/temp_extract)
 
 # Create a custom target that depends on the combined library
-if (WIN32)
-    add_custom_target(cvc ALL DEPENDS ${COMBINED_LIB_ROOT} ${COMBINED_LIB_RELEASE})
-else ()
-    add_custom_target(cvc ALL DEPENDS ${COMBINED_LIB})
-endif ()
+add_custom_target(cvc ALL DEPENDS ${COMBINED_LIB})

@@ -28,7 +28,7 @@ jobs:
             arch: aarch64
             platform: linux
             cmake_arch: aarch64
-          # Windows builds
+          # Windows builds (MinGW)
           - os: windows-latest
             arch: x86_64
             platform: windows
@@ -74,9 +74,18 @@ jobs:
         run: |
           brew install cmake libtool
 
-      - name: Install build dependencies (Windows)
+      - name: Setup MinGW-w64 (Windows)
         if: matrix.os == 'windows-latest'
-        uses: lukka/get-cmake@latest
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-python3
+            mingw-w64-x86_64-python-pip
 
       - name: Set up build environment variables
         shell: bash
@@ -123,18 +132,18 @@ jobs:
             echo "Building for iOS Device with SDK: $IOS_SDK_PATH"
           fi
 
-      - name: Build miracl-core library (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          cd libs/miracl-core/c
-          python3 config64.py -o 3 -o 1
-          # Verify core.a was created
-          if [ ! -f "core.a" ]; then
-            echo "Error: core.a was not created by miracl-core build"
-            exit 1
-          fi
-          echo "miracl-core build completed successfully"
+      #      - name: Build miracl-core library (Windows)
+      #        if: matrix.os == 'windows-latest'
+      #        shell: bash
+      #        run: |
+      #          cd libs/miracl-core/c
+      #          python3 config64.py -o 3 -o 1
+      #          # Verify core.a was created
+      #          if [ ! -f "core.a" ]; then
+      #            echo "Error: core.a was not created by miracl-core build"
+      #            exit 1
+      #          fi
+      #          echo "miracl-core build completed successfully"
 
       - name: Create build directory
         run: mkdir -p ${{ env.BUILD_DIR }}
@@ -171,26 +180,31 @@ jobs:
 
       - name: Configure CMake (Windows)
         if: matrix.os == 'windows-latest'
-        shell: cmd
+        shell: msys2 {0}
         run: |
           cd ${{ env.BUILD_DIR }}
-          cmake -A ${{ matrix.cmake_arch }} -DCMAKE_BUILD_TYPE=Release ${{ github.workspace }}
+          export CC=gcc
+          export CXX=g++
+          cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release ${{ github.workspace }}
 
-      - name: Build CVC library
+      - name: Build CVC library (Unix/MinGW)
+        if: matrix.os != 'windows-latest'
         run: |
           cd ${{ env.BUILD_DIR }}
           cmake --build . --config Release
+
+      - name: Build CVC library (Windows MinGW)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          cd ${{ env.BUILD_DIR }}
+          cmake --build . --verbose
 
       - name: Verify build artifacts
         shell: bash
         run: |
           cd ${{ env.BUILD_DIR }}
-          # Look for the static library file
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            LIBRARY_FILE="Release/cvc.lib"
-          else
-            LIBRARY_FILE="libcvc.a"
-          fi
+          LIBRARY_FILE="libcvc.a"
           
           if [ ! -f "$LIBRARY_FILE" ]; then
             echo "Error: $LIBRARY_FILE was not created"
@@ -240,13 +254,8 @@ jobs:
           
           # Create a tarball/zip for this platform
           cd "$ARTIFACTS_DIR"
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            ARCHIVE_NAME="${{ env.ARTIFACT_NAME }}.zip"
-            7z a "../$ARCHIVE_NAME" .
-          else
-            ARCHIVE_NAME="${{ env.ARTIFACT_NAME }}.tar.gz"  
-            tar -czf "../$ARCHIVE_NAME" .
-          fi
+          ARCHIVE_NAME="${{ env.ARTIFACT_NAME }}.tar.gz"  
+          tar -czf "../$ARCHIVE_NAME" .
           
           echo "ARCHIVE_PATH=${{ env.BUILD_DIR }}/$ARCHIVE_NAME" >> $GITHUB_ENV
           echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
@@ -303,7 +312,7 @@ jobs:
             ### Supported Platforms
             - **macOS**: arm64, x86_64 
             - **Linux**: x86_64, aarch64
-            - **Windows**: x86_64
+            - **Windows**: x86_64 (MinGW)
             - **iOS**: arm64 (device), arm64 (simulator)
             
             ### Dependencies Included
