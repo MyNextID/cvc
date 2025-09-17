@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(CVC_MAJOR 0)
 set(CVC_MINOR 2)
-set(CVC_PATCH 29)
+set(CVC_PATCH 30)
 set(CVC_VERSION_STRING "${CVC_MAJOR}.${CVC_MINOR}.${CVC_PATCH}")
 
 # ============================================================================
@@ -214,6 +214,9 @@ if (WIN32)
     # Force l8w8jwt and mbedtls to use MinGW-compatible settings
     set(ENABLE_TESTING OFF CACHE BOOL "Build MbedTLS tests." FORCE)
     set(ENABLE_PROGRAMS OFF CACHE BOOL "Build MbedTLS example programs." FORCE)
+
+    # CRITICAL: Disable string truncation warnings for mbedtls with GCC 15+
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-stringop-truncation -Wno-unterminated-string-initialization")
 
     # Apply same policy for consistency
     cmake_policy(SET CMP0077 NEW)
